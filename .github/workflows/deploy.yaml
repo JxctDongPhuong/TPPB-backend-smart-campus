@@ -9,8 +9,7 @@ on:
 jobs:
   docker-build-push:
     name : build and push docker image
-    
-    run-on: ubuntu-lastest
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout respository
