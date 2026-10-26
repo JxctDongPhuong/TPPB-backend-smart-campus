@@ -1,9 +1,10 @@
 import logging
 from datetime import date
 from typing import List, Optional, Dict, Any
+from fastapi import HTTPException, status
 from sqlmodel import Session, select, func
 
-from app.models import DienNang, DienNangCreate, LichPhong
+from app.models import DienNang, DienNangCreate, LichPhong, Phong
 
 logger = logging.getLogger("smart_campus.metrics")
 
@@ -27,6 +28,20 @@ def get_energy_metrics(
         return []
 
 def record_energy_metric(session: Session, data: DienNangCreate) -> Optional[DienNang]:
+    # 1. Kiểm tra phòng có tồn tại hay không
+    phong = session.get(Phong, data.ma_phong)
+    if not phong or phong.da_xoa:
+        valid_rooms = [p.ma_phong for p in session.exec(select(Phong).where(Phong.da_xoa == False)).all()]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "Wrong parameter 'ma_phong'",
+                "value_received": data.ma_phong,
+                "message": f"Phòng '{data.ma_phong}' không tồn tại trong hệ thống.",
+                "recommendation": f"Vui lòng chọn một trong các mã phòng hợp lệ hiện có: {valid_rooms}, hoặc tạo phòng '{data.ma_phong}' trước."
+            }
+        )
+
     try:
         existing = session.get(DienNang, (data.ma_phong, data.ngay))
         if existing:

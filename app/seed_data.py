@@ -1,5 +1,5 @@
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from sqlmodel import Session, select
 
 from app.database import engine, init_db
@@ -14,15 +14,9 @@ def seed_sample_data():
     init_db()
     
     with Session(engine) as session:
-        # Kiểm tra nếu đã có dữ liệu phòng thì không nạp đè
-        existing = session.exec(select(Phong)).first()
-        if existing:
-            print("[Seed Data] Database da co du lieu, bo qua buoc khoi tao mau.")
-            return
-
-        print("[Seed Data] Bat dau nap du lieu mau vao campus.db...")
+        print("[Seed Data] Bat dau kiem tra va nap du lieu mau vao database...")
         today = date.today()
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         # 0. Tài khoản mẫu
         admin_user = session.get(TaiKhoan, 1)
@@ -62,59 +56,66 @@ def seed_sample_data():
         session.commit()
 
         # 3. Phòng học
-        phong_list = [
-            Phong(ma_phong="A101", ten_phong="Phong Ly Thuyet A101", ma_cs="CS1", toa="A", tang=1, loai_phong="Phòng lý thuyết", suc_chua=50, trang_thai="Sẵn sàng"),
-            Phong(ma_phong="A102", ten_phong="Phong Ly Thuyet A102", ma_cs="CS1", toa="A", tang=1, loai_phong="Phòng lý thuyết", suc_chua=60, trang_thai="Sẵn sàng"),
-            Phong(ma_phong="A201", ten_phong="Phong May Tinh Lab 1", ma_cs="CS1", toa="A", tang=2, loai_phong="Phòng máy tính", suc_chua=45, trang_thai="Sẵn sàng"),
-            Phong(ma_phong="A202", ten_phong="Phong May Tinh Lab 2", ma_cs="CS1", toa="A", tang=2, loai_phong="Phòng máy tính", suc_chua=40, trang_thai="Sẵn sàng"),
-            Phong(ma_phong="B301", ten_phong="Hoi Truong Lon B301", ma_cs="CS1", toa="B", tang=3, loai_phong="Hội trường", suc_chua=150, trang_thai="Sẵn sàng"),
-            Phong(ma_phong="B302", ten_phong="Phong Hoc Nhom B302", ma_cs="CS1", toa="B", tang=3, loai_phong="Phòng học nhóm", suc_chua=15, trang_thai="Sẵn sàng"),
-        ]
-        session.add_all(phong_list)
-        session.commit()
+        existing_phong = session.exec(select(Phong)).first()
+        if not existing_phong:
+            phong_list = [
+                Phong(ma_phong="A101", ten_phong="Phong Ly Thuyet A101", ma_cs="CS1", toa="A", tang=1, loai_phong="Phòng lý thuyết", suc_chua=50, trang_thai="Sẵn sàng"),
+                Phong(ma_phong="A102", ten_phong="Phong Ly Thuyet A102", ma_cs="CS1", toa="A", tang=1, loai_phong="Phòng lý thuyết", suc_chua=60, trang_thai="Sẵn sàng"),
+                Phong(ma_phong="A201", ten_phong="Phong May Tinh Lab 1", ma_cs="CS1", toa="A", tang=2, loai_phong="Phòng máy tính", suc_chua=45, trang_thai="Sẵn sàng"),
+                Phong(ma_phong="A202", ten_phong="Phong May Tinh Lab 2", ma_cs="CS1", toa="A", tang=2, loai_phong="Phòng máy tính", suc_chua=40, trang_thai="Sẵn sàng"),
+                Phong(ma_phong="B301", ten_phong="Hoi Truong Lon B301", ma_cs="CS1", toa="B", tang=3, loai_phong="Hội trường", suc_chua=150, trang_thai="Sẵn sàng"),
+                Phong(ma_phong="B302", ten_phong="Phong Hoc Nhom B302", ma_cs="CS1", toa="B", tang=3, loai_phong="Phòng học nhóm", suc_chua=15, trang_thai="Sẵn sàng"),
+            ]
+            session.add_all(phong_list)
+            session.commit()
 
         # 4. Thiết bị trong phòng
-        tb_list = [
-            ThietBi(ma_tb="TB_ML_A101", ma_phong="A101", ma_loai="MAYLANH", ten_tb="Dieu hoa Daikin 1", tinh_trang="Tốt"),
-            ThietBi(ma_tb="TB_MC_A101", ma_phong="A101", ma_loai="MAYCHIEU", ten_tb="May chieu Panasonic", tinh_trang="Tốt"),
-            ThietBi(ma_tb="TB_PC_A201", ma_phong="A201", ma_loai="MAYTINH", ten_tb="Dan 45 PC Dell", tinh_trang="Tốt"),
-            ThietBi(ma_tb="TB_ML_A202", ma_phong="A202", ma_loai="MAYLANH", ten_tb="Dieu hoa Panasonic A202", tinh_trang="Hỏng"),
-        ]
-        session.add_all(tb_list)
-        session.commit()
+        existing_tb = session.exec(select(ThietBi)).first()
+        if not existing_tb:
+            tb_list = [
+                ThietBi(ma_tb="TB_ML_A101", ma_phong="A101", ma_loai="MAYLANH", ten_tb="Dieu hoa Daikin 1", tinh_trang="Tốt"),
+                ThietBi(ma_tb="TB_MC_A101", ma_phong="A101", ma_loai="MAYCHIEU", ten_tb="May chieu Panasonic", tinh_trang="Tốt"),
+                ThietBi(ma_tb="TB_PC_A201", ma_phong="A201", ma_loai="MAYTINH", ten_tb="Dan 45 PC Dell", tinh_trang="Tốt"),
+                ThietBi(ma_tb="TB_ML_A202", ma_phong="A202", ma_loai="MAYLANH", ten_tb="Dieu hoa Panasonic A202", tinh_trang="Hỏng"),
+            ]
+            session.add_all(tb_list)
+            session.commit()
 
         # 5. Phiếu báo hỏng mẫu
-        phieu = PhieuBaoHong(
-            ma_phong="A202",
-            ma_tb="TB_ML_A202",
-            mo_ta="Dieu hoa A202 bi chay nuoc va keu to, khong lam mat",
-            trang_thai="DangXuLy",
-            ma_tk=1,
-            ngay_bao=now
-        )
-        session.add(phieu)
-        session.commit()
+        existing_phieu = session.exec(select(PhieuBaoHong)).first()
+        if not existing_phieu:
+            phieu = PhieuBaoHong(
+                ma_phong="A202",
+                ma_tb="TB_ML_A202",
+                mo_ta="Dieu hoa A202 bi chay nuoc va keu to, khong lam mat",
+                trang_thai="DangXuLy",
+                ma_tk=1,
+                ngay_bao=now
+            )
+            session.add(phieu)
+            session.commit()
 
-        # 6. Lịch phòng hôm nay (A101 có ca 1, A201 có ca 2, các phòng khác trống)
-        lich_list = [
-            LichPhong(ma_phong="A101", ngay=today, ca=1, ten_mon_hoc="Lap trinh Python Nang Cao", giang_vien="ThS. Nguyen Van A", lop="CNTT-K15", trang_thai="Sắp diễn ra"),
-            LichPhong(ma_phong="A201", ngay=today, ca=2, ten_mon_hoc="Thuc hanh Mang May Tinh", giang_vien="TS. Tran Thi B", lop="KTPM-K16", trang_thai="Sắp diễn ra"),
-            LichPhong(ma_phong="A102", ngay=today + timedelta(days=1), ca=3, ten_mon_hoc="Co so Du lieu", giang_vien="ThS. Le Hoang C", lop="HTTT-K15", trang_thai="Sắp diễn ra"),
-        ]
-        session.add_all(lich_list)
-        session.commit()
+        # 6. Lịch phòng hôm nay
+        existing_lich = session.exec(select(LichPhong)).first()
+        if not existing_lich:
+            lich_list = [
+                LichPhong(ma_phong="A101", ngay=today, ca=1, loai="HOC", noi_dung="Lap trinh Python Nang Cao - ThS. Nguyen Van A - CNTT-K15", so_nguoi=45),
+                LichPhong(ma_phong="A201", ngay=today, ca=2, loai="HOC", noi_dung="Thuc hanh Mang May Tinh - TS. Tran Thi B - KTPM-K16", so_nguoi=40),
+                LichPhong(ma_phong="A102", ngay=today + timedelta(days=1), ca=3, loai="HOC", noi_dung="Co so Du lieu - ThS. Le Hoang C - HTTT-K15", so_nguoi=50),
+            ]
+            session.add_all(lich_list)
+            session.commit()
 
-        # 7. Điện năng tiêu thụ (Mô phỏng cả phòng bình thường và phòng có lãng phí idle waste)
-        dien_list = [
-            # A101 có lịch ca 1 -> tiêu thụ 12.5 kWh là hợp lý
-            DienNang(ma_phong="A101", ngay=today, kwh=12.5, so_gio_bat=4.0),
-            # A201 có lịch ca 2 -> tiêu thụ 18.0 kWh là hợp lý
-            DienNang(ma_phong="A201", ngay=today, kwh=18.0, so_gio_bat=3.5),
-            # B302 KHÔNG có lịch hôm nay nhưng tiêu thụ 8.5 kWh -> Cảnh báo lãng phí Idle Waste!
-            DienNang(ma_phong="B302", ngay=today, kwh=8.5, so_gio_bat=6.0),
-        ]
-        session.add_all(dien_list)
-        session.commit()
+        # 7. Điện năng tiêu thụ
+        existing_dien = session.exec(select(DienNang)).first()
+        if not existing_dien:
+            dien_list = [
+                DienNang(ma_phong="A101", ngay=today, kwh=12.5, so_gio_bat=4.0),
+                DienNang(ma_phong="A201", ngay=today, kwh=18.0, so_gio_bat=3.5),
+                DienNang(ma_phong="B302", ngay=today, kwh=8.5, so_gio_bat=6.0),
+            ]
+            session.add_all(dien_list)
+            session.commit()
 
         print("[Seed Data] Da nap thanh cong 6 phong hoc, 4 thiet bi, 1 phieu bao hong, 3 lich hoc va 3 ban ghi dien nang!")
 

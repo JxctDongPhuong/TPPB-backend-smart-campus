@@ -1,7 +1,7 @@
 from typing import List, Optional
 from fastapi import HTTPException, status
 from sqlmodel import Session, select
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.models import (
     ThietBi, ThietBiCreate, ThietBiCreateBatch,
@@ -105,7 +105,7 @@ def submit_report(session: Session, data: PhieuBaoHongCreate, ma_tk_nguoi_bao: i
         ma_tb=data.ma_tb,
         mo_ta=data.mo_ta,
         trang_thai=TRANG_THAI_MOI,
-        ngay_bao=datetime.utcnow()
+        ngay_bao=datetime.now(timezone.utc)
     )
     session.add(report)
     session.commit()
@@ -125,7 +125,7 @@ def update_report(session: Session, ma_phieu: int, update_data: PhieuBaoHongUpda
         setattr(report, k, v)
         
     if update_data.trang_thai in TRANG_THAI_HOAN_TAT and not report.ngay_xu_ly:
-        report.ngay_xu_ly = datetime.utcnow()
+        report.ngay_xu_ly = datetime.now(timezone.utc)
 
     session.add(report)
     session.commit()

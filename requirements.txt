@@ -4,3 +4,5 @@ sqlmodel>=0.0.16
 google-genai>=0.1.1
 python-dotenv>=1.0.1
 pydantic>=2.6.0
+psycopg2-binary>=2.9.9
+

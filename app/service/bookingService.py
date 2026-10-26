@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import List, Optional
 from fastapi import HTTPException, status
 from sqlmodel import Session, select
@@ -86,7 +86,7 @@ def submit_booking_request(
         muc_dich=request_data.muc_dich,
         ghi_chu=request_data.ghi_chu,
         trang_thai="ChoDuyet",
-        ngay_gui=datetime.utcnow()
+        ngay_gui=datetime.now(timezone.utc)
     )
     session.add(db_request)
     session.commit()
@@ -132,7 +132,7 @@ def process_booking_request(
 
     db_request.trang_thai = action.trang_thai
     db_request.nguoi_duyet = ma_tk_admin
-    db_request.ngay_duyet = datetime.utcnow()
+    db_request.ngay_duyet = datetime.now(timezone.utc)
     if action.ghi_chu:
         db_request.ghi_chu = action.ghi_chu
 

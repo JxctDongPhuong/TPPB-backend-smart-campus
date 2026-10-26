@@ -3,7 +3,7 @@ from fastapi import HTTPException, status
 from sqlmodel import Session, select
 
 from app.models import (
-    Phong, PhongCreate, PhongUpdate
+    Phong, PhongCreate, PhongUpdate, CoSo
 )
 
 # Re-export các hàm Thiết bị & Báo hỏng từ deviceService để tương thích ngược 100%
@@ -46,31 +46,91 @@ def get_room_by_id(session: Session, ma_phong: str) -> Phong:
 
 def create_room(session: Session, room_data: PhongCreate) -> Phong:
     """
-    Tạo mới một phòng học trong hệ thống.
+    Tạo mới một phòng học trong hệ thống kèm kiểm tra và gợi ý tham số.
     """
+    # 1. Kiểm tra trùng mã phòng
     existing = session.get(Phong, room_data.ma_phong)
     if existing:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Mã phòng đã tồn tại")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "Duplicate parameter 'ma_phong'",
+                "message": f"Mã phòng '{room_data.ma_phong}' đã tồn tại.",
+                "recommendation": "Vui lòng chọn một mã phòng khác chưa được sử dụng."
+            }
+        )
     
-    db_room = Phong.model_validate(room_data)
-    session.add(db_room)
-    session.commit()
-    session.refresh(db_room)
-    return db_room
+    # 2. Kiểm tra mã cơ sở có tồn tại không
+    coso = session.get(CoSo, room_data.ma_cs)
+    if not coso:
+        valid_cs = [c.ma_cs for c in session.exec(select(CoSo)).all()]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "Wrong parameter 'ma_cs'",
+                "value_received": room_data.ma_cs,
+                "message": f"Mã cơ sở '{room_data.ma_cs}' không tồn tại trong hệ thống.",
+                "recommendation": f"Vui lòng chọn một trong các mã cơ sở hợp lệ hiện có: {valid_cs}, hoặc tạo mới cơ sở '{room_data.ma_cs}' trước."
+            }
+        )
+    
+    try:
+        db_room = Phong.model_validate(room_data)
+        session.add(db_room)
+        session.commit()
+        session.refresh(db_room)
+        return db_room
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "Database error",
+                "message": "Không thể lưu dữ liệu phòng vào database.",
+                "recommendation": str(e)
+            }
+        )
 
 def update_room(session: Session, ma_phong: str, room_data: PhongUpdate) -> Phong:
     """
     Cập nhật thông tin phòng học.
     """
     db_room = get_room_by_id(session, ma_phong)
-    update_dict = room_data.model_dump(exclude_unset=True)
-    for key, value in update_dict.items():
-        setattr(db_room, key, value)
-        
-    session.add(db_room)
-    session.commit()
-    session.refresh(db_room)
-    return db_room
+
+    # Nếu cập nhật ma_cs, kiểm tra tồn tại
+    if room_data.ma_cs is not None:
+        coso = session.get(CoSo, room_data.ma_cs)
+        if not coso:
+            valid_cs = [c.ma_cs for c in session.exec(select(CoSo)).all()]
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "Wrong parameter 'ma_cs'",
+                    "value_received": room_data.ma_cs,
+                    "message": f"Mã cơ sở '{room_data.ma_cs}' không tồn tại trong hệ thống.",
+                    "recommendation": f"Vui lòng chọn một trong các mã cơ sở hợp lệ hiện có: {valid_cs}."
+                }
+            )
+
+    try:
+        update_dict = room_data.model_dump(exclude_unset=True)
+        for key, value in update_dict.items():
+            setattr(db_room, key, value)
+            
+        session.add(db_room)
+        session.commit()
+        session.refresh(db_room)
+        return db_room
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "Database error",
+                "message": "Lỗi khi cập nhật phòng.",
+                "recommendation": str(e)
+            }
+        )
 
 def delete_room(session: Session, ma_phong: str) -> dict:
     """

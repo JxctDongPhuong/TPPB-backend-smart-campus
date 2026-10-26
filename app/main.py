@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
+from app.execpt import register_exception_handlers
 from app.routers import (
     room_router,
     booking_router,
@@ -23,6 +24,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Đăng ký bộ xử lý lỗi cơ sở dữ liệu từ app/execpt.py
+register_exception_handlers(app)
 
 # Cấu hình CORS để Frontend (React/Vite) gọi API không bị chặn
 app.add_middleware(

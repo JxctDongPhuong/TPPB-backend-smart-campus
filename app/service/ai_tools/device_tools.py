@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from sqlmodel import Session, select, func
 
@@ -88,7 +88,7 @@ def tao_phieu_bao_hong(
             mo_ta=mo_ta_loi,
             trang_thai="Moi",
             ma_tk=ma_tk,
-            ngay_bao=datetime.utcnow()
+            ngay_bao=datetime.now(timezone.utc)
         )
         session.add(new_ticket)
         session.commit()

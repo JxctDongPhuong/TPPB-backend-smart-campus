@@ -22,12 +22,7 @@ def chat_with_agent(payload: ChatRequest, session: Session = Depends(get_session
     )
     return ChatResponse(**result)
 
-@router.post("/refresh-cache", summary="Chủ động làm mới bộ nhớ đệm dữ liệu Campus (bỏ qua cache)")
-def refresh_cache(session: Session = Depends(get_session)):
-    chatBotSvc.refresh_campus_cache(session)
-    return {"message": "Đã làm mới dữ liệu bộ nhớ đệm (RAM) thành công!", "status": "refreshed"}
-
-@router.get("/analize", summary="Lấy các gợi ý tối ưu điện năng tự động từ AI")
+@router.get("/analyzize", summary="Lấy các gợi ý tối ưu điện năng tự động từ AI")
 def get_ai_suggestions(
     model: Optional[str] = "gemini-3.1-flash-lite",
     session: Session = Depends(get_session)

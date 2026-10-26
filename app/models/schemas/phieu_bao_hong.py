@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import SQLModel, Field, Relationship
 
@@ -20,7 +20,7 @@ class PhieuBaoHong(PhieuBaoHongBase, table=True):
 
     ma_phieu: Optional[int] = Field(default=None, primary_key=True, description="Mã phiếu tự tăng")
     ma_tk: int = Field(foreign_key="taikhoan.ma_tk", description="Người gửi báo hỏng")
-    ngay_bao: datetime = Field(default_factory=datetime.utcnow, description="Thời điểm báo")
+    ngay_bao: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Thời điểm báo")
     ghi_chu_admin: Optional[str] = Field(default=None, max_length=500, description="Ghi chú kết quả xử lý của quản trị viên")
     ngay_xu_ly: Optional[datetime] = Field(default=None, description="Thời điểm hoàn tất xử lý")
 
