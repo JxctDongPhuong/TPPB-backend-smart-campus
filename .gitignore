@@ -1,0 +1,21 @@
+# 1. Các file tài liệu nháp
+data.txt
+knowleged.txt
+structor.txt
+
+# 2. File biến môi trường (Bảo mật API Key)
+.env
+*.env
+**/.env
+
+# 3. Database SQLite cá nhân
+*.db
+campus.db
+
+# 4. File rác biên dịch Python
+__pycache__/
+*.pyc
+
+# 5. Môi trường ảo (nếu có)
+venv/
+.venv/
