@@ -1,7 +1,7 @@
 services:
   api:
-    container_name: smart-campus-backEnd
-    image: smart-campus-backEnd:1.0
+    container_name: smart-campus-backend
+    image: smart-campus-backend:1.0
 
     build:
       # context: . la thu muc pham vi

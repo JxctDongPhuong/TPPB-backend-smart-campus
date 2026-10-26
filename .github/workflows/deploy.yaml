@@ -32,4 +32,4 @@ jobs:
         context: .
         file: ./dockerfile
         push: true
-        tags: ${{ secrets.DOCKERHUB_USERNAME }}/smart-campus-backEnd:1.0
+        tags: ${{ secrets.DOCKERHUB_USERNAME }}/smart-campus-backend:1.0
