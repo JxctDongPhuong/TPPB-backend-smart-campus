@@ -28,13 +28,25 @@ SUPPORTED_MODELS = [
     "gemini-2.0-flash",
 ]
 
-def get_system_prompt() -> str:
+def get_system_prompt(user_name: Optional[str] = None, user_role: Optional[str] = None) -> str:
     today_str = date.today().strftime("%Y-%m-%d")
+    name = user_name or "Ban Quản Lý CSVC"
+    role = user_role or "Admin"
+    is_teacher_or_admin = any(r in role.lower() for r in ["admin", "quản lý", "giảng viên", "giáo viên", "gv", "ql"])
+
+    booking_permission_rules = f"""
+QUYỀN HẠN TÀI KHOẢN ĐĂNG NHẬP:
+- Người dùng đang tương tác: {name}
+- Vai trò hệ thống: {role}
+- QUY TẮC MƯỢN PHÒNG:
+  {"✅ ĐƯỢC PHÉP: Tài khoản này là " + role + " (Admin / Giảng viên). Khi họ nhờ kiểm tra phòng, hãy gọi `kiem_tra_kha_dung_dat_phong`. Khi họ nhờ mượn phòng, đặt phòng hoặc xác nhận mượn, hãy GỌI NGAY CÔNG CỤ `tao_yeu_cau_muon_phong` để lập đơn mượn phòng vào hệ thống." if is_teacher_or_admin else "❌ KHÔNG ĐƯỢC PHÉP TẠO ĐƠN MƯỢN TRỰC TIẾP: Tài khoản này là " + role + " (Sinh viên / tài khoản thường). Bạn CÓ THỂ tra cứu phòng trống qua `tim_phong_trong` cho họ, NHƯNG NẾU họ nhờ mượn phòng hoặc tạo đơn đặt phòng, TUYỆT ĐỐI KHÔNG gọi `tao_yeu_cau_muon_phong`, mà hãy TỪ CHỐI lịch sự: 'Theo quy định của Smart Campus, chỉ tài khoản Giảng viên hoặc Ban Quản lý mới được phép gửi đơn mượn phòng qua Nexus AI. Bạn vui lòng liên hệ Giảng viên phụ trách để đăng ký.'"}
+"""
+
     return f"""
 Bạn là Trợ lý AI Điều Hành Smart Campus trường đại học.
 HÔM NAY LÀ NGÀY: {today_str} (Mọi câu hỏi về 'hôm nay', 'chiều nay', 'hiện tại' đều ứng với ngày {today_str}).
 Nhiệm vụ của bạn là hỗ trợ sinh viên, giảng viên và ban quản lý tra cứu phòng học, kiểm tra lịch mượn, phát hiện lãng phí điện năng và tiếp nhận sự cố kỹ thuật.
-
+{booking_permission_rules}
 QUY TẮC PHẢN HỒI BẮT BUỘC (TUÂN THỦ 100%):
 1. TRẢ LỜI TRỰC DIỆN, NGẮN GỌN, ĐÚNG TRỌNG TÂM:
    - TUYỆT ĐỐI KHÔNG chào hỏi rườm rà (Bỏ toàn bộ các câu: "Chào bạn, tôi là trợ lý...").
@@ -67,6 +79,8 @@ def handle_chat(
     message: str,
     history: Optional[List[Dict[str, str]]] = None,
     user_id: Optional[int] = None,
+    user_name: Optional[str] = None,
+    user_role: Optional[str] = None,
     model_name: Optional[str] = "gemini-3.1-flash-lite"
 ) -> Dict[str, Any]:
     """
@@ -129,7 +143,7 @@ def handle_chat(
                 model=model,
                 contents=gemini_contents,
                 config=types.GenerateContentConfig(
-                    system_instruction=get_system_prompt(),
+                    system_instruction=get_system_prompt(user_name=user_name, user_role=user_role),
                     temperature=0.2,
                     tools=gemini_tools
                 )

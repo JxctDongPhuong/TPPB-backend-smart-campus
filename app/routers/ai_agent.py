@@ -18,11 +18,15 @@ def chat_with_agent(payload: ChatRequest, session: Session = Depends(get_session
         message=payload.message,
         history=history_dicts,
         user_id=payload.user_id,
+        user_name=payload.user_name,
+        user_role=payload.user_role,
         model_name=payload.model
     )
     return ChatResponse(**result)
 
 @router.get("/analyzize", summary="Lấy các gợi ý tối ưu điện năng tự động từ AI")
+@router.get("/analyze", summary="Alias lấy gợi ý tối ưu điện năng tự động từ AI")
+@router.get("/suggestions", summary="Alias lấy gợi ý tối ưu điện năng tự động từ AI")
 def get_ai_suggestions(
     model: Optional[str] = "gemini-3.1-flash-lite",
     session: Session = Depends(get_session)

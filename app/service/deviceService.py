@@ -5,7 +5,8 @@ from datetime import datetime, timezone
 
 from app.models import (
     ThietBi, ThietBiCreate, ThietBiCreateBatch,
-    PhieuBaoHong, PhieuBaoHongCreate, PhieuBaoHongUpdate
+    PhieuBaoHong, PhieuBaoHongCreate, PhieuBaoHongUpdate,
+    Phong
 )
 
 # Hằng số trạng thái phiếu báo hỏng
@@ -99,9 +100,32 @@ def submit_report(session: Session, data: PhieuBaoHongCreate, ma_tk_nguoi_bao: i
     """
     Gửi phiếu báo hỏng thiết bị mới từ sinh viên hoặc giảng viên.
     """
+    clean_room = data.ma_phong.replace("Phòng ", "").replace("phòng ", "").strip() if data.ma_phong else None
+
+    # Nếu có mã thiết bị, cập nhật tình trạng thiết bị thành "Hỏng"
+    if data.ma_tb:
+        dev = session.get(ThietBi, data.ma_tb)
+        if dev:
+            dev.tinh_trang = "Hỏng"
+            session.add(dev)
+            if not clean_room and dev.ma_phong:
+                clean_room = dev.ma_phong
+
+    # Đảm bảo mã phòng hợp lệ để không vi phạm ràng buộc Foreign Key
+    if clean_room:
+        room_exists = session.get(Phong, clean_room)
+        if not room_exists:
+            first_room = session.exec(select(Phong)).first()
+            if first_room:
+                clean_room = first_room.ma_phong
+    else:
+        first_room = session.exec(select(Phong)).first()
+        if first_room:
+            clean_room = first_room.ma_phong
+
     report = PhieuBaoHong(
         ma_tk=ma_tk_nguoi_bao,
-        ma_phong=data.ma_phong,
+        ma_phong=clean_room,
         ma_tb=data.ma_tb,
         mo_ta=data.mo_ta,
         trang_thai=TRANG_THAI_MOI,
@@ -124,8 +148,21 @@ def update_report(session: Session, ma_phieu: int, update_data: PhieuBaoHongUpda
     for k, v in data_dict.items():
         setattr(report, k, v)
         
-    if update_data.trang_thai in TRANG_THAI_HOAN_TAT and not report.ngay_xu_ly:
-        report.ngay_xu_ly = datetime.now(timezone.utc)
+    if update_data.trang_thai in TRANG_THAI_HOAN_TAT:
+        if not report.ngay_xu_ly:
+            report.ngay_xu_ly = datetime.now(timezone.utc)
+        # Tự động khôi phục tình trạng thiết bị về "Tốt" khi phiếu đã xử lý xong
+        if report.ma_tb:
+            dev = session.get(ThietBi, report.ma_tb)
+            if dev:
+                dev.tinh_trang = "Tốt"
+                session.add(dev)
+    elif update_data.trang_thai == "DangXuLy":
+        if report.ma_tb:
+            dev = session.get(ThietBi, report.ma_tb)
+            if dev:
+                dev.tinh_trang = "Đang sửa"
+                session.add(dev)
 
     session.add(report)
     session.commit()

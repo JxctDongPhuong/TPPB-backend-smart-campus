@@ -12,6 +12,8 @@ class ChatRequest(BaseModel):
         description="Lịch sử các câu hỏi và trả lời trước đó để AI duy trì mạch hội thoại (Multi-turn)"
     )
     user_id: Optional[int] = None
+    user_name: Optional[str] = None
+    user_role: Optional[str] = None
     model: Optional[str] = Field(
         default="gemini-3.1-flash-lite",
         description="Model Gemini muốn sử dụng ('gemini-3.1-flash-lite' hoặc 'gemini-3.5-flash-lite')"

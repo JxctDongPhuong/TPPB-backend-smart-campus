@@ -18,7 +18,7 @@ def get_schedules(
     ngay: Optional[date] = Query(None, description="Lọc theo ngày (YYYY-MM-DD)"),
     session: Session = Depends(get_session)
 ):
-    return 
+    return bookingService.get_schedules(session, ma_phong=ma_phong, ngay=ngay)
 
 @router.post("/schedule", response_model=LichPhongRead, status_code=status.HTTP_201_CREATED, summary="Thêm lịch học chính khóa")
 def create_schedule(schedule_data: LichPhongCreate, session: Session = Depends(get_session)):
@@ -39,6 +39,10 @@ def create_schedule(schedule_data: LichPhongCreate, session: Session = Depends(g
     session.commit()
     session.refresh(db_schedule)
     return db_schedule
+
+@router.delete("/schedule/{ma_lich}", summary="Xóa lịch phòng học")
+def delete_schedule(ma_lich: int, session: Session = Depends(get_session)):
+    return bookingService.delete_schedule(session, ma_lich)
 
 # ==================== 2. YÊU CẦU MƯỢN PHÒNG (YeuCauMuon) ====================
 

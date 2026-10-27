@@ -40,11 +40,27 @@ def create_schedule(session: Session, schedule_data: LichPhongCreate) -> LichPho
     session.commit()
     session.refresh(db_schedule)
     
-    # Xóa cache để AI cập nhật lịch mới ngay lập tức
-    from app.service.chatBotSvc import campus_cache
-    campus_cache.invalidate()
+    # Làm mới cache để AI cập nhật lịch mới ngay lập tức
+    try:
+        from app.service.chatBotSvc import refresh_campus_cache
+        refresh_campus_cache(session)
+    except Exception:
+        pass
     
     return db_schedule
+
+def delete_schedule(session: Session, ma_lich: int) -> dict:
+    sched = session.get(LichPhong, ma_lich)
+    if not sched:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy lịch phòng học này!")
+    session.delete(sched)
+    session.commit()
+    try:
+        from app.service.chatBotSvc import refresh_campus_cache
+        refresh_campus_cache(session)
+    except Exception:
+        pass
+    return {"success": True, "ma_lich": ma_lich, "message": "Đã xóa lịch phòng thành công"}
 
 # ==================== YÊU CẦU MƯỢN PHÒNG ====================
 
@@ -107,6 +123,13 @@ def process_booking_request(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Yêu cầu này đã được xử lý trước đó")
 
     if action.trang_thai == "DaDuyet":
+        # Kiểm tra xem đã có lịch phòng nào liên kết với ma_yc này chưa
+        da_co_lich_yc = session.exec(
+            select(LichPhong).where(LichPhong.ma_yc == db_request.ma_yc)
+        ).first()
+        if da_co_lich_yc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Yêu cầu mượn này đã được tạo lịch phòng trước đó!")
+
         # Kiểm tra trùng lịch trước khi duyệt
         da_co_lich = session.exec(
             select(LichPhong).where(
@@ -116,7 +139,7 @@ def process_booking_request(
             )
         ).first()
         if da_co_lich:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Trùng lịch! Phòng này đã được cấp cho người khác")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Trùng lịch! Phòng này đã được cấp cho hoạt động khác trong ca này")
 
         # Tự động tạo 1 dòng mới trong LichPhong
         new_schedule = LichPhong(
@@ -140,9 +163,12 @@ def process_booking_request(
     session.commit()
     session.refresh(db_request)
 
-    # Xóa cache nếu duyệt mượn phòng thành công
+    # Làm mới dữ liệu cache tra cứu nếu duyệt mượn phòng thành công
     if action.trang_thai == "DaDuyet":
-        from app.service.chatBotSvc import campus_cache
-        campus_cache.invalidate()
+        try:
+            from app.service.chatBotSvc import refresh_campus_cache
+            refresh_campus_cache(session)
+        except Exception as e:
+            pass
 
     return db_request

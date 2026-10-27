@@ -3,7 +3,7 @@ from datetime import date
 from typing import Optional, Dict, Any
 from sqlmodel import Session, select
 
-from app.models import Phong, LichPhong, YeuCauMuon
+from app.models import Phong, LichPhong, YeuCauMuon, TaiKhoan
 
 logger = logging.getLogger("smart_campus.tools.booking")
 
@@ -18,19 +18,20 @@ def kiem_tra_kha_dung_dat_phong(
     Dùng khi người dùng muốn kiểm tra trước khi đặt phòng.
     """
     try:
-        room = session.get(Phong, ma_phong)
+        clean_room = ma_phong.replace("Phòng ", "").replace("phòng ", "").strip()
+        room = session.get(Phong, clean_room)
         if not room:
             return {
                 "status": "not_found",
                 "kha_dung": False,
-                "message": f"Phòng {ma_phong} không tồn tại trong hệ thống."
+                "message": f"Phòng {clean_room} không tồn tại trong hệ thống."
             }
 
         if room.trang_thai == "Bảo trì":
             return {
                 "status": "maintenance",
                 "kha_dung": False,
-                "message": f"Phòng {ma_phong} đang trong diện bảo trì, tạm thời không thể sử dụng."
+                "message": f"Phòng {clean_room} đang trong diện bảo trì, tạm thời không thể sử dụng."
             }
 
         target_date = date.fromisoformat(ngay)
@@ -38,7 +39,7 @@ def kiem_tra_kha_dung_dat_phong(
         # Kiểm tra lịch học chính khóa
         schedule = session.exec(
             select(LichPhong).where(
-                LichPhong.ma_phong == ma_phong,
+                LichPhong.ma_phong == clean_room,
                 LichPhong.ngay == target_date,
                 LichPhong.ca == ca
             )
@@ -48,16 +49,16 @@ def kiem_tra_kha_dung_dat_phong(
             return {
                 "status": "busy",
                 "kha_dung": False,
-                "message": f"Phòng {ma_phong} đã có lịch học ({schedule.ten_mon_hoc}) vào Ca {ca} ngày {target_date}."
+                "message": f"Phòng {clean_room} đã có lịch học ({schedule.ten_mon_hoc}) vào Ca {ca} ngày {target_date}."
             }
 
         # Kiểm tra đơn mượn phòng đã duyệt
         existing_booking = session.exec(
             select(YeuCauMuon).where(
-                YeuCauMuon.ma_phong == ma_phong,
-                YeuCauMuon.ngay_muon == target_date,
+                YeuCauMuon.ma_phong == clean_room,
+                YeuCauMuon.ngay == target_date,
                 YeuCauMuon.ca == ca,
-                YeuCauMuon.trang_thai == "Đã duyệt"
+                (YeuCauMuon.trang_thai == "DaDuyet") | (YeuCauMuon.trang_thai == "Đã duyệt")
             )
         ).first()
 
@@ -65,17 +66,17 @@ def kiem_tra_kha_dung_dat_phong(
             return {
                 "status": "booked",
                 "kha_dung": False,
-                "message": f"Phòng {ma_phong} đã được duyệt cho người khác mượn vào Ca {ca} ngày {target_date}."
+                "message": f"Phòng {clean_room} đã được duyệt cho người khác mượn vào Ca {ca} ngày {target_date}."
             }
 
         return {
             "status": "available",
             "kha_dung": True,
-            "ma_phong": ma_phong,
+            "ma_phong": clean_room,
             "loai_phong": room.loai_phong,
             "ngay": str(target_date),
             "ca": ca,
-            "message": f"Phòng {ma_phong} hoàn toàn trống và sẵn sàng để đăng ký mượn vào Ca {ca} ngày {target_date}."
+            "message": f"Phòng {clean_room} hoàn toàn trống và sẵn sàng để đăng ký mượn vào Ca {ca} ngày {target_date}."
         }
     except Exception as e:
         logger.error(f"[Tool kiem_tra_kha_dung_dat_phong Error]: {e}")
@@ -91,14 +92,28 @@ def tao_yeu_cau_muon_phong(
     ngay: str,
     ca: int,
     ly_do: str,
+    so_nguoi: Optional[int] = 30,
     ma_tk: int = 1
 ) -> Dict[str, Any]:
     """
     Tạo đơn đăng ký mượn phòng học gửi tới Ban Quản lý duyệt.
-    Dùng khi người dùng đồng ý mượn phòng sau khi kiểm tra phòng trống.
+    Cho phép nếu là tài khoản Admin hoặc Giảng viên (Giáo viên).
     """
     try:
-        check = kiem_tra_kha_dung_dat_phong(session, ma_phong, ngay, ca)
+        clean_room = ma_phong.replace("Phòng ", "").replace("phòng ", "").strip()
+
+        # Kiểm tra vai trò tài khoản: Chỉ Admin hoặc Giảng viên mới được duyệt tạo yêu cầu mượn phòng
+        acc = session.get(TaiKhoan, ma_tk)
+        if acc:
+            role_lower = (acc.vai_tro or "").lower()
+            allowed = any(r in role_lower for r in ["admin", "quản lý", "giảng viên", "giáo viên"])
+            if not allowed:
+                return {
+                    "status": "permission_denied",
+                    "message": f"Tài khoản {acc.ho_ten} ({acc.vai_tro}) không được phép tạo đơn mượn phòng qua Nexus AI. Chỉ tài khoản Giảng viên hoặc Admin mới có quyền gửi yêu cầu mượn phòng."
+                }
+
+        check = kiem_tra_kha_dung_dat_phong(session, clean_room, ngay, ca)
         if not check.get("kha_dung", False):
             return {
                 "status": "rejected",
@@ -107,24 +122,26 @@ def tao_yeu_cau_muon_phong(
 
         target_date = date.fromisoformat(ngay)
         new_request = YeuCauMuon(
-            ma_tk=ma_tk,
-            ma_phong=ma_phong,
-            ngay_muon=target_date,
+            ma_tk=ma_tk or 1,
+            ma_phong=clean_room,
+            ngay=target_date,
             ca=ca,
-            ly_do=ly_do,
-            trang_thai="Chờ duyệt"
+            so_nguoi=so_nguoi or 30,
+            muc_dich=ly_do or "Mượn phòng giảng dạy / học tập qua Nexus AI",
+            trang_thai="ChoDuyet"
         )
         session.add(new_request)
         session.commit()
         session.refresh(new_request)
 
+        user_label = f"bởi {acc.ho_ten} ({acc.vai_tro})" if acc else "thành công"
         return {
             "status": "success",
             "ma_yc": new_request.ma_yc,
-            "ma_phong": ma_phong,
+            "ma_phong": clean_room,
             "ngay_muon": str(target_date),
             "ca": ca,
-            "message": f"Đã gửi đơn mượn phòng {ma_phong} (Mã đơn #{new_request.ma_yc}) cho Ca {ca} ngày {target_date}. Vui lòng chờ duyệt."
+            "message": f"Đã gửi đơn mượn phòng {clean_room} (Mã đơn #{new_request.ma_yc}) cho Ca {ca} ngày {target_date} {user_label}. Đơn đã được chuyển tới Ban Quản trị CSVC để phê duyệt."
         }
     except Exception as e:
         session.rollback()
